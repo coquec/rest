@@ -38,6 +38,7 @@
                          entrypoint
                          (mock nil)
                          (sync nil)
+                         (timeout nil)
                          (accept "application/vnd.api+json")
                          (auth-header nil)
                          (data nil)
@@ -59,7 +60,7 @@ calls with `rest-api-multiple-calls'."
     (request
       entrypoint
       :sync sync
-      :timeout (when sync 3)
+      :timeout timeout
       :type type
       :headers
       (append `(("accept" . ,accept))
