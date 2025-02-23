@@ -95,9 +95,8 @@ calls with `rest-api-multiple-calls'."
   "Make parallel REST API calls using `rest-api-call' with the
 parameters stored in each of the entries of the PARAMETERS plist.
 Leave the results of individual calls in the RESULTS list, with
-entries being cons with the return code and the data.  Calls
-SUCCESS if all the calls are successful, or ERROR if any of them
-fails.
+entries being cons with (SYMBOL-STATUS . DATA).  Calls SUCCESS if
+all the calls are successful, or ERROR if any of them fails.
 
 Entries in the RESULTS list do not follow the same order as
 elements in the PARAMETERS plist.
@@ -110,19 +109,34 @@ CONTENT-TYPE are used for entries in the PARAMETER list that
 don't specify them.
 
 Both SUCCESS and ERROR must expect the RESULTS list as parameter."
-  (dolist (entry parameters)
-    ;; TODO: complete this adding the callbacks functions.
-    (apply #'rest-api-call
-           (append
-            (:type (or type (plist-get entry :type)))
-            (:entrypoint (plist-get entry :entrypoint))
-            (:accept (or accept (plist-get entry :accept)))
-            (:auth-header (or auth-header (plist-get entry :auth-header)))
-            (:data (or data (plist-get entry :data)))
-            (:content-type (or content-type
-                               (plist-get entry :content-type)))
-            (:success #'rest-single-success)
-            (:error #'rest-single-error)))))
+  (let ((counter (length parameters))
+        (error-p nil))
+    (dolist (entry parameters)
+      (apply #'rest-api-call
+             (list
+              :type (or type (plist-get entry :type))
+              :entrypoint (plist-get entry :entrypoint)
+              :accept (or accept (plist-get entry :accept))
+              :auth-header (or auth-header (plist-get entry :auth-header))
+              :data (or data (plist-get entry :data))
+              :content-type (or content-type
+                                (plist-get entry :content-type))
+              :success nil
+              :error nil
+              :complete
+              (cl-function
+               (lambda (&key
+                        data
+                        symbol-status
+                        &allow-other-keys)
+                 (push `(,symbol-status . ,data) results)
+                 (setq error-p (or error-p
+                                   (not (eq symbol-status 'success))))
+                 (setq counter (1- counter))
+                 (when (= 0 counter)
+                   (if error-p
+                       (apply error results)
+                     (apply success results))))))))))
 
 (cl-defun rest-raw-to-buffer (&key
                               data
