@@ -33,35 +33,53 @@
 (require 'json)
 (require 'json-mode)
 
-(cl-defun rest-api-call (type
+(cl-defun rest-api-call (&key
+                         type
                          entrypoint
-                         &key
+                         (mock nil)
                          (sync nil)
                          (accept "application/vnd.api+json")
                          (auth-header nil)
                          (data nil)
                          (content-type nil)
                          (success #'rest-raw-to-buffer)
-                         (error #'rest-show-error)
-                         &allow-other-keys)
-  "Make a REST API call of type TYPE to the ENTRYPOINT URL,
-including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as headers.
-Calls SUCCESS with the resulting data.  The rest of parameters
-work as described in the `request' documentation."
-  (request
-    entrypoint
-    :sync sync
-    :timeout (when sync 3)
-    :type type
-    :headers
-    (append `(("accept" . ,accept))
-            (and auth-header
-                 (list auth-header))
-            (and content-type
-                 `(("Content-Type" . ,content-type))))
-    :data data
-    :success success
-    :error error))
+                         (error #'rest-show-error))
+  "When the MOCK parameter is nil, make a REST API call of type TYPE
+to the ENTRYPOINT URL, including ACCEPT, AUTH-HEADER, and
+CONTENT-TYPE as headers.  SUCCESS is called with the resulting
+data.
+
+The other parameters work as described in the `request'
+documentation.
+
+Return a list of the parameters used to call it.  Used along a
+non-nil MOCK, these return values can be used to make parallel
+calls with `rest-api-multiple-calls'."
+  (unless mock
+    (request
+      entrypoint
+      :sync sync
+      :timeout (when sync 3)
+      :type type
+      :headers
+      (append `(("accept" . ,accept))
+              (and auth-header
+                   (list auth-header))
+              (and content-type
+                   `(("Content-Type" . ,content-type))))
+      :data data
+      :success success
+      :error error))
+  (list :type type
+        :entrypoint entrypoint
+        :mock mock
+        :sync sync
+        :accept accept
+        :auth-header auth-header
+        :data data
+        :content-type content-type
+        :success success
+        :error error))
 
 (cl-defun rest-raw-to-buffer (&key
                               data
