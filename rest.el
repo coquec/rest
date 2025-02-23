@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025 Coque Couto
 
 ;; Author: Coque Couto <coque.couto at gmail.com>
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires ((emacs "24.4") request json json-mode)
 ;; Keywords: comm lisp tools
 ;; URL: https://github.com/coquec/emacs-rest
