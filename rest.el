@@ -165,12 +165,12 @@ it, and formats it as JSON."
   "Generates a header to be used with `rest-api-call' for
 authenticated calls.
 
-KEY is a string with the API key or the JWT token.
+API-KEY is a string with the API key or the JWT token.
 
 TYPE may be \\='jwt for JWT authentication, which will produce an
-\\='Authentication: Bearer KEY\\=' header.
+\\='Authentication: Bearer API-KEY\\=' header.
 
-Any other TYPE will produce an \\='apikey: KEY\\=' header."
+Any other TYPE will produce an \\='apikey: API-KEY\\=' header."
   (cond ((eq type 'jwt)
          `("Authorization" . ,(concat "Bearer " api-key)))
         (t
