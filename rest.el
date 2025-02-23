@@ -81,6 +81,48 @@ calls with `rest-api-multiple-calls'."
         :success success
         :error error))
 
+(cl-defun rest-api-multiple-calls (&key
+                                   parameters
+                                   results
+                                   success
+                                   error
+                                   (type nil)
+                                   (accept nil)
+                                   (auth-header nil)
+                                   (data nil)
+                                   (content-type nil))
+  "Make parallel REST API calls using `rest-api-call' with the
+parameters stored in each of the entries of the PARAMETERS plist.
+Leave the results of individual calls in the RESULTS list, with
+entries being cons with the return code and the data.  Calls
+SUCCESS if all the calls are successful, or ERROR if any of them
+fails.
+
+Entries in the RESULTS list do not follow the same order as
+elements in the PARAMETERS plist.
+
+For each entry in the PARAMETERS plist, :entrypoint is required,
+and :sync, :success and :error are ignored.
+
+Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and
+CONTENT-TYPE are used for entries in the PARAMETER list that
+don't specify them.
+
+Both SUCCESS and ERROR must expect the RESULTS list as parameter."
+  (dolist (entry parameters)
+    ;; TODO: complete this adding the callbacks functions.
+    (apply #'rest-api-call
+           (append
+            (:type (or type (plist-get entry :type)))
+            (:entrypoint (plist-get entry :entrypoint))
+            (:accept (or accept (plist-get entry :accept)))
+            (:auth-header (or auth-header (plist-get entry :auth-header)))
+            (:data (or data (plist-get entry :data)))
+            (:content-type (or content-type
+                               (plist-get entry :content-type)))
+            (:success #'rest-single-success)
+            (:error #'rest-single-error)))))
+
 (cl-defun rest-raw-to-buffer (&key
                               data
                               (buffer-name "*raw-results*")
