@@ -33,27 +33,29 @@
 (require 'json)
 (require 'json-mode)
 
-(cl-defun rest-api-call (&key
-                         type
-                         entrypoint
-                         (dry-run nil)
-                         (sync nil)
-                         (timeout nil)
-                         (accept "application/vnd.api+json")
-                         (auth-header nil)
-                         (data nil)
-                         (content-type nil)
-                         (success #'rest-raw-to-buffer)
-                         (error #'rest-show-error))
+(cl-defun rest-call (&key
+                     type
+                     entrypoint
+                     (dry-run nil)
+                     (sync nil)
+                     (timeout nil)
+                     (accept "application/vnd.api+json")
+                     (auth-header nil)
+                     (data nil)
+                     (content-type nil)
+                     (success #'rest-raw-to-buffer)
+                     (error #'rest-show-error)
+                     (complete nil))
   "When the DRY-RUN parameter is nil, make a REST API call of type TYPE to
 the ENTRYPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
 headers.  SUCCESS is called with the resulting data.
 
 The other parameters work as described in the `request' documentation.
 
-Return a list of the parameters used to call it.  Used along a non-nil
-DRY-RUN, these return values can be used to make parallel calls with
-`rest-api-multiple-calls'."
+Return a list of the parameters used to call it, except DRY-RUN, SYNC,
+SUCCESS, ERROR, and COMPLETE.  Used along a non-nil DRY-RUN, these
+return values can be used to make parallel calls with
+`rest-multiple-calls'."
   (unless dry-run
     (request
       entrypoint
@@ -68,18 +70,14 @@ DRY-RUN, these return values can be used to make parallel calls with
                    `(("Content-Type" . ,content-type))))
       :data data
       :success success
-      :error error))
+      :error error
+      :complete complete))
   (list :type type
         :entrypoint entrypoint
-        :dry-run dry-run
-        :sync sync
+        :timeout timeout
         :accept accept
-        :auth-header auth-header
+        :auth auth-header
         :data data
-        :content-type content-type
-        :success success
-        :error error))
-
 (cl-defun rest-api-multiple-calls (&key
                                    parameters
                                    results
