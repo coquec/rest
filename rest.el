@@ -78,20 +78,22 @@ return values can be used to make parallel calls with
         :accept accept
         :auth auth-header
         :data data
-(cl-defun rest-api-multiple-calls (&key
-                                   parameters
-                                   results
-                                   success
-                                   error
-                                   (type nil)
-                                   (accept nil)
-                                   (auth-header nil)
-                                   (data nil)
-                                   (content-type nil))
-  "Make parallel REST API calls using `rest-api-call' with the parameters
-stored in each of the entries of the PARAMETERS plist.  Leave the
-results of individual calls in the RESULTS list, with entries being cons
-with (SYMBOL-STATUS . DATA).  Calls SUCCESS if all the calls are
+        :content content-type))
+
+(cl-defun rest-multiple-calls (&key
+                               parameters
+                               results
+                               (success #'rest-multiple-raw-to-buffer)
+                               (error #'rest-multiple-show-error)
+                               (type nil)
+                               (accept nil)
+                               (auth-header nil)
+                               (data nil)
+                               (content-type nil))
+  "Make multiple parallel REST API calls using `rest-call' with the
+parameters stored in each of the entries of the PARAMETERS plist.  Leave
+the results of individual calls in the RESULTS list, with entries being
+cons with (SYMBOL-STATUS . DATA).  Calls SUCCESS if all the calls are
 successful, or ERROR if any of them fails.
 
 Entries in the RESULTS list do not follow the same order as elements in
@@ -101,37 +103,35 @@ For each entry in the PARAMETERS plist, :entrypoint is required, and
 :sync, :success and :error are ignored.
 
 Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
-are used for entries in the PARAMETER list that don't specify them.
+are used for entries in the PARAMETERS list that don't specify them.
 
 Both SUCCESS and ERROR must expect the RESULTS list as parameter."
   (let ((counter (length parameters))
         (error-p nil))
     (dolist (entry parameters)
-      (apply #'rest-api-call
-             (list
-              :type (or type (plist-get entry :type))
-              :entrypoint (plist-get entry :entrypoint)
-              :accept (or accept (plist-get entry :accept))
-              :auth-header (or auth-header (plist-get entry :auth-header))
-              :data (or data (plist-get entry :data))
-              :content-type (or content-type
-                                (plist-get entry :content-type))
-              :success nil
-              :error nil
-              :complete
-              (cl-function
-               (lambda (&key
-                        data
-                        symbol-status
-                        &allow-other-keys)
-                 (push `(,symbol-status . ,data) results)
-                 (setq error-p (or error-p
-                                   (not (eq symbol-status 'success))))
-                 (setq counter (1- counter))
-                 (when (= 0 counter)
-                   (if error-p
-                       (apply error results)
-                     (apply success results))))))))))
+      (rest-call :type (or type (plist-get entry :type))
+                 :entrypoint (plist-get entry :entrypoint)
+                 :accept (or accept (plist-get entry :accept))
+                 :auth-header (or auth-header (plist-get entry :auth-header))
+                 :data (or data (plist-get entry :data))
+                 :content-type (or content-type
+                                   (plist-get entry :content-type))
+                 :success nil
+                 :error nil
+                 :complete
+                 (cl-function
+                  (lambda (&key
+                           data
+                           symbol-status
+                           &allow-other-keys)
+                    (push `(,symbol-status . ,data) results)
+                    (setq error-p (or error-p
+                                      (not (eq symbol-status 'success))))
+                    (cl-decf counter)
+                    (when (= 0 counter)
+                      (if error-p
+                          (funcall error :results results)
+                        (funcall success :results results)))))))))
 
 (cl-defun rest-raw-to-buffer (&key
                               data
