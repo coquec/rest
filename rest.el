@@ -36,7 +36,7 @@
 (cl-defun rest-api-call (&key
                          type
                          entrypoint
-                         (mock nil)
+                         (dry-run nil)
                          (sync nil)
                          (timeout nil)
                          (accept "application/vnd.api+json")
@@ -45,18 +45,16 @@
                          (content-type nil)
                          (success #'rest-raw-to-buffer)
                          (error #'rest-show-error))
-  "When the MOCK parameter is nil, make a REST API call of type TYPE
-to the ENTRYPOINT URL, including ACCEPT, AUTH-HEADER, and
-CONTENT-TYPE as headers.  SUCCESS is called with the resulting
-data.
+  "When the DRY-RUN parameter is nil, make a REST API call of type TYPE to
+the ENTRYPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
+headers.  SUCCESS is called with the resulting data.
 
-The other parameters work as described in the `request'
-documentation.
+The other parameters work as described in the `request' documentation.
 
-Return a list of the parameters used to call it.  Used along a
-non-nil MOCK, these return values can be used to make parallel
-calls with `rest-api-multiple-calls'."
-  (unless mock
+Return a list of the parameters used to call it.  Used along a non-nil
+DRY-RUN, these return values can be used to make parallel calls with
+`rest-api-multiple-calls'."
+  (unless dry-run
     (request
       entrypoint
       :sync sync
@@ -73,7 +71,7 @@ calls with `rest-api-multiple-calls'."
       :error error))
   (list :type type
         :entrypoint entrypoint
-        :mock mock
+        :dry-run dry-run
         :sync sync
         :accept accept
         :auth-header auth-header
@@ -92,21 +90,20 @@ calls with `rest-api-multiple-calls'."
                                    (auth-header nil)
                                    (data nil)
                                    (content-type nil))
-  "Make parallel REST API calls using `rest-api-call' with the
-parameters stored in each of the entries of the PARAMETERS plist.
-Leave the results of individual calls in the RESULTS list, with
-entries being cons with (SYMBOL-STATUS . DATA).  Calls SUCCESS if
-all the calls are successful, or ERROR if any of them fails.
+  "Make parallel REST API calls using `rest-api-call' with the parameters
+stored in each of the entries of the PARAMETERS plist.  Leave the
+results of individual calls in the RESULTS list, with entries being cons
+with (SYMBOL-STATUS . DATA).  Calls SUCCESS if all the calls are
+successful, or ERROR if any of them fails.
 
-Entries in the RESULTS list do not follow the same order as
-elements in the PARAMETERS plist.
+Entries in the RESULTS list do not follow the same order as elements in
+the PARAMETERS plist.
 
-For each entry in the PARAMETERS plist, :entrypoint is required,
-and :sync, :success and :error are ignored.
+For each entry in the PARAMETERS plist, :entrypoint is required, and
+:sync, :success and :error are ignored.
 
-Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and
-CONTENT-TYPE are used for entries in the PARAMETER list that
-don't specify them.
+Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
+are used for entries in the PARAMETER list that don't specify them.
 
 Both SUCCESS and ERROR must expect the RESULTS list as parameter."
   (let ((counter (length parameters))
