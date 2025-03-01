@@ -163,6 +163,57 @@ formats it as JSON."
     (read-only-mode read-only-p)
     (pop-to-buffer (current-buffer))))
 
+(cl-defun rest-multiple-results-to-buffer (&key
+                                           results
+                                           format-buffer
+                                           buffer-name-pattern
+                                           (read-only-p t)
+                                           &allow-other-keys)
+  "Call FORMAT-BUFFER for all the entries in RESULTS.
+
+The BUFFER-NAME-PATTERN is a string which is used to format each buffer
+name.  It is used along with a counter for each of the entries in
+RESULTS."
+  (let ((count 1))
+    (dolist (elem results)
+      (funcall format-buffer
+               :data (cdr elem)
+               :read-only-p read-only-p
+               :buffer-name (format buffer-name-pattern count))
+      (cl-incf count))))
+
+(cl-defun rest-multiple-raw-to-buffer (&key
+                                       results
+                                       (buffer-name-pattern
+                                        "*raw-results-%03d*")
+                                       (read-only-p t)
+                                       &allow-other-keys)
+  "Call `rest-raw-to-buffer' for all the entries in RESULTS, using
+`rest-multiple-resuts-to-buffer'."
+  (rest-multiple-results-to-buffer :results results
+                                   :format-buffer #'rest-raw-to-buffer
+                                   :buffer-name-pattern buffer-name-pattern
+                                   :read-only-p read-only-p))
+
+(cl-defun rest-multiple-json-to-buffer (&key
+                                        results
+                                        (buffer-name-pattern
+                                         "*json-results-%03d*")
+                                        (read-only-p t)
+                                        &allow-other-keys)
+  "Call `rest-json-to-buffer' for all the entries in RESULTS, using
+`rest-multiple-resuts-to-buffer'."
+  (rest-multiple-results-to-buffer :results results
+                                   :format-buffer #'rest-json-to-buffer
+                                   :buffer-name-pattern buffer-name-pattern
+                                   :read-only-p read-only-p))
+
+(cl-defun rest-multiple-show-error (results
+                                    &allow-other-keys)
+  "Display an error message when a multiple call fails."
+  ;; TODO: provide useful information about the errors.
+  (message "Some of the multiple calls failed."))
+
 (cl-defun rest-show-error (&key
                            error-thrown
                            &allow-other-keys)
