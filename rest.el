@@ -138,8 +138,8 @@ Both SUCCESS and ERROR must expect the RESULTS list as parameter."
                               (buffer-name "*raw-results*")
                               (read-only-p t)
                               &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into
-it, and leaves it unformatted."
+  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
+leaves it unformatted."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -152,8 +152,8 @@ it, and leaves it unformatted."
                                (buffer-name "*json-results*")
                                (read-only-p t)
                                &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into
-it, and formats it as JSON."
+  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
+formats it as JSON."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -166,14 +166,13 @@ it, and formats it as JSON."
 (cl-defun rest-show-error (&key
                            error-thrown
                            &allow-other-keys)
-  "Writes a message with the ERROR-THROWN."
+  "Write a message with the ERROR-THROWN."
   (message "Error: %S" error-thrown))
 
 (cl-defun rest-auth-header (&key
                             api-key
                             (type nil))
-  "Generates a header to be used with `rest-api-call' for
-authenticated calls.
+  "Generate a header to be used with `rest-call' for authenticated calls.
 
 API-KEY is a string with the API key or the JWT token.
 
