@@ -13,16 +13,16 @@ The functions use the [[https://melpa.org/#/request][request.el]] package to mak
 parameters used by the different functions have the same meaning in both
 packages.
 
-*** Calling a REST entry point
+*** Calling a REST endpoint
 
-The library provides functions to call the entry points, and some simple
-functions to render the results in buffers.  In this example, we call an entry
-point and render the result in a buffer as plain text (which is the default):
+The library provides functions to call the endpoints, and some simple functions
+to render the results in buffers.  In this example, we call an endpoint and
+render the result in a buffer as plain text (which is the default):
 
-#+NAME: Simple REST entry point call, showing results as RAW text.
+#+NAME: Simple REST endpoint call, showing results as RAW text.
 #+BEGIN_SRC emacs-lisp :results output none
   (rest-call :type "GET"
-             :entrypoint "https://api.restful-api.dev/objects")
+             :endpoint "https://api.restful-api.dev/objects")
 #+END_SRC
 
 The previous call is non-blocking, so we can continue working with Emacs while
@@ -31,10 +31,10 @@ sent by the API, or a message will be displayed if an HTTP error is received.
 
 This is the same example, but rendering the results as JSON:
 
-#+NAME: Simple REST entry point call, showing JSON results.
+#+NAME: Simple REST endpoint call, showing JSON results.
 #+BEGIN_SRC emacs-lisp :results output none
   (rest-call :type "GET"
-             :entrypoint "https://api.restful-api.dev/objects"
+             :endpoint "https://api.restful-api.dev/objects"
              :success #'rest-json-to-buffer)
 #+END_SRC
 
@@ -45,7 +45,7 @@ showing a message with some information about the returned objects:
 #+NAME: Process the JSON returned from the API.
 #+BEGIN_SRC emacs-lisp :results output none
   (rest-call :type "GET"
-             :entrypoint "https://api.restful-api.dev/objects"
+             :endpoint "https://api.restful-api.dev/objects"
              :success
              (cl-function
               (lambda (&key
@@ -62,15 +62,15 @@ showing a message with some information about the returned objects:
 It is possible to execute several calls in parallel using the
 ~rest-multiple-calls~ function:
 
-#+NAME: Parallel entry point calls.
+#+NAME: Parallel endpoint calls.
 #+BEGIN_SRC emacs-lisp :results output none
   (rest-multiple-calls
    :parameters
-   '((:type "GET" :entrypoint "https://api.restful-api.dev/objects/1")
-     (:type "GET" :entrypoint "https://api.restful-api.dev/objects/2")))
+   '((:type "GET" :endpoint "https://api.restful-api.dev/objects/1")
+     (:type "GET" :endpoint "https://api.restful-api.dev/objects/2")))
 #+END_SRC
 
-As both entry points in the last example use the GET method, we could have used
+As both endpoints in the last example use the GET method, we could have used
 this simpler version to do the same.  In addition, we use the
 ~rest-multiple-json-to-buffer~ function to format the output, opening a buffer
 for each JSON result provided by the API:
@@ -81,8 +81,8 @@ for each JSON result provided by the API:
    :type "GET"
    :success #'rest-multiple-json-to-buffer
    :parameters
-   '((:entrypoint "https://api.restful-api.dev/objects/1")
-     (:entrypoint "https://api.restful-api.dev/objects/2")))
+   '((:endpoint "https://api.restful-api.dev/objects/1")
+     (:endpoint "https://api.restful-api.dev/objects/2")))
 #+END_SRC
 
 The ~rest-call~ function returns a list with most of the parameters used to
@@ -90,17 +90,17 @@ call it in elisp.  When invoked with a non-nil ~dry-run~ parameter, it does not
 make the REST call.  This can be used to aggregate several calls to be executed
 in parallel with ~rest-multiple-calls~, as shown here:
 
-#+NAME: Parallel entry point calls with parameters used for single calls.
+#+NAME: Parallel endpoint calls with parameters used for single calls.
 #+BEGIN_SRC emacs-lisp :results output none
   (rest-multiple-calls
      :parameters
      (list
       (rest-call :dry-run t
                  :type "GET"
-                 :entrypoint "https://api.restful-api.dev/objects/1")
+                 :endpoint "https://api.restful-api.dev/objects/1")
       (rest-call :dry-run t
                  :type "GET"
-                 :entrypoint "https://api.restful-api.dev/objects/2")))
+                 :endpoint "https://api.restful-api.dev/objects/2")))
 #+END_SRC
 
 This is particularly useful for elisp API proxy functions:
@@ -108,20 +108,20 @@ This is particularly useful for elisp API proxy functions:
 #+NAME: Make parallel calls of funcions using rest-api.
 #+BEGIN_SRC emacs-lisp :results output none
   ;; We don't know which parameters this functions use with rest-call...
-  (cl-defun my-api-entrypoint1 (&key
-                                param1 param2 param3
-                                (dry-run nil))
+  (cl-defun my-api-endpoint1 (&key
+                              param1 param2 param3
+                              (dry-run nil))
     (rest-call :type "GET"
-               :entrypoint (concat my-api-location "/entrypoint1")
+               :endpoint (concat my-api-location "/endpoint1")
                :dry-run dry-run
                :auth-header (...)
                ...))
 
-  (cl-defun my-api-entrypoint2 (&key
-                                param1
-                                (dry-run nil))
+  (cl-defun my-api-endpoint2 (&key
+                              param1
+                              (dry-run nil))
     (rest-call :type "GET"
-               :entrypoint (concat my-api-location "/entrypoint2")
+               :endpoint (concat my-api-location "/endpoint2")
                :dry-run dry-run
                :auth-header (...)
                ...))
@@ -131,6 +131,6 @@ This is particularly useful for elisp API proxy functions:
   (rest-multiple-calls
    :parameters
    (list
-    (my-api-entrypoint1 :dry-run t :param1 1 :param2 2 :param3 3)
-    (my-api-entrypoint2 :dry-run t :param1 1)))
+    (my-api-endpoint1 :dry-run t :param1 1 :param2 2 :param3 3)
+    (my-api-endpoint2 :dry-run t :param1 1)))
 #+END_SRC

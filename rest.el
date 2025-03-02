@@ -35,7 +35,7 @@
 
 (cl-defun rest-call (&key
                      type
-                     entrypoint
+                     endpoint
                      (dry-run nil)
                      (sync nil)
                      (timeout nil)
@@ -47,7 +47,7 @@
                      (error #'rest-show-error)
                      (complete nil))
   "When the DRY-RUN parameter is nil, make a REST API call of type TYPE to
-the ENTRYPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
+the ENDPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
 headers.  SUCCESS is called with the resulting data.
 
 The other parameters work as described in the `request' documentation.
@@ -58,7 +58,7 @@ return values can be used to make parallel calls with
 `rest-multiple-calls'."
   (unless dry-run
     (request
-      entrypoint
+      endpoint
       :sync sync
       :timeout timeout
       :type type
@@ -73,7 +73,7 @@ return values can be used to make parallel calls with
       :error error
       :complete complete))
   (list :type type
-        :entrypoint entrypoint
+        :endpoint endpoint
         :timeout timeout
         :accept accept
         :auth auth-header
@@ -98,7 +98,7 @@ the calls are successful, or to ERROR if any of them fails.  Entries in
 this list do not follow the same order as elements in the PARAMETERS
 plist.
 
-For each element in the PARAMETERS plist, :entrypoint is required, and
+For each element in the PARAMETERS plist, :endpoint is required, and
 :sync, :success and :error are ignored.
 
 Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
@@ -113,16 +113,16 @@ Return a list with the lists of parameters used to call `rest-call'."
         (api-results nil)
         (result nil))
     (dolist (entry parameters)
-      (let* ((type (or type (plist-get entry :type)))
-             (entrypoint (plist-get entry :entrypoint))
+      (let* ((type (rest--param :type type entry))
+             (endpoint (plist-get entry :endpoint))
              ;; Make a first dry-run call to get the default parameters.
              (defaults (rest-call :dry-run t
                                   :type type
-                                  :entrypoint entrypoint)))
+                                  :endpoint endpoint)))
         (push
          (rest-call
           :type type
-          :entrypoint entrypoint
+          :endpoint endpoint
           :accept (rest--param :accept accept entry defaults)
           :auth-header (rest--param :auth-header auth-header entry defaults)
           :data (rest--param :data data entry defaults)
