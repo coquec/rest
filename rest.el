@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025 Coque Couto
 
 ;; Author: Coque Couto <coque.couto at gmail.com>
-;; Version: 0.1
+;; Version: 0.2
 ;; Package-Requires ((emacs "24.4") request json json-mode)
 ;; Keywords: comm lisp tools
 ;; URL: https://github.com/coquec/emacs-rest
@@ -33,43 +33,125 @@
 (require 'json)
 (require 'json-mode)
 
-(cl-defun rest-api-call (type
-                         entrypoint
-                         &key
-                         (sync nil)
-                         (accept "application/vnd.api+json")
-                         (auth-header nil)
-                         (data nil)
-                         (content-type nil)
-                         (success #'rest-raw-to-buffer)
-                         (error #'rest-show-error)
-                         &allow-other-keys)
-  "Make a REST API call of type TYPE to the ENTRYPOINT URL,
-including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as headers.
-Calls SUCCESS with the resulting data.  The rest of parameters
-work as described in the `request' documentation."
-  (request
-    entrypoint
-    :sync sync
-    :timeout (when sync 3)
-    :type type
-    :headers
-    (append `(("accept" . ,accept))
-            (and auth-header
-                 (list auth-header))
-            (and content-type
-                 `(("Content-Type" . ,content-type))))
-    :data data
-    :success success
-    :error error))
+(cl-defun rest-call (&key
+                     type
+                     endpoint
+                     (dry-run nil)
+                     (sync nil)
+                     (timeout nil)
+                     (accept "application/vnd.api+json")
+                     (auth-header nil)
+                     (data nil)
+                     (content-type nil)
+                     (success #'rest-raw-to-buffer)
+                     (error #'rest-show-error)
+                     (complete nil))
+  "When the DRY-RUN parameter is nil, make a REST API call of type TYPE to
+the ENDPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
+headers.  SUCCESS is called with the resulting data.
+
+The other parameters work as described in the `request' documentation.
+
+Return a list of the parameters used to call it, except DRY-RUN, SYNC,
+SUCCESS, ERROR, and COMPLETE.  Used along a non-nil DRY-RUN, these
+return values can be used to make parallel calls with
+`rest-multiple-calls'."
+  (unless dry-run
+    (request
+      endpoint
+      :sync sync
+      :timeout timeout
+      :type type
+      :headers
+      (append `(("accept" . ,accept))
+              (and auth-header
+                   (list auth-header))
+              (and content-type
+                   `(("Content-Type" . ,content-type))))
+      :data data
+      :success success
+      :error error
+      :complete complete))
+  (list :type type
+        :endpoint endpoint
+        :timeout timeout
+        :accept accept
+        :auth auth-header
+        :data data
+        :content content-type))
+
+(cl-defun rest-multiple-calls (&key
+                               parameters
+                               (success #'rest-multiple-raw-to-buffer)
+                               (error #'rest-multiple-show-error)
+                               (type nil)
+                               (accept nil)
+                               (auth-header nil)
+                               (data nil)
+                               (content-type nil))
+  "Make multiple parallel REST API calls using `rest-call' with the
+parameters stored in each element of the PARAMETERS plist, or the
+default parameters of `rest-call' for the missing ones.  Gather the
+results of individual calls in a list with elements being cons
+(SYMBOL-STATUS . DATA).  Pass this list as parameter to SUCCESS if all
+the calls are successful, or to ERROR if any of them fails.  Entries in
+this list do not follow the same order as elements in the PARAMETERS
+plist.
+
+For each element in the PARAMETERS plist, :endpoint is required, and
+:sync, :success and :error are ignored.
+
+Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
+are used for entries in the PARAMETERS list that don't specify them.
+
+Both SUCCESS and ERROR must accept the results list as parameter.  See
+`rest-multiple-raw-to-buffer' as an example.
+
+Return a list with the lists of parameters used to call `rest-call'."
+  (let ((counter (length parameters))
+        (error-p nil)
+        (api-results nil)
+        (result nil))
+    (dolist (entry parameters)
+      (let* ((type (rest--param :type type entry))
+             (endpoint (plist-get entry :endpoint))
+             ;; Make a first dry-run call to get the default parameters.
+             (defaults (rest-call :dry-run t
+                                  :type type
+                                  :endpoint endpoint)))
+        (push
+         (rest-call
+          :type type
+          :endpoint endpoint
+          :accept (rest--param :accept accept entry defaults)
+          :auth-header (rest--param :auth-header auth-header entry defaults)
+          :data (rest--param :data data entry defaults)
+          :content-type (rest--param :content-type content-type entry defaults)
+          :success nil
+          :error nil
+          :complete
+          (cl-function
+           (lambda (&key
+                    data
+                    symbol-status
+                    &allow-other-keys)
+             (push `(,symbol-status . ,data) api-results)
+             (setq error-p (or error-p
+                               (not (eq symbol-status 'success))))
+             (when (= 0 (cl-decf counter))
+               (if error-p
+                   (funcall error :results api-results)
+                 (funcall success :results api-results))))))
+         result)))
+    result))
 
 (cl-defun rest-raw-to-buffer (&key
                               data
                               (buffer-name "*raw-results*")
                               (read-only-p t)
                               &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into
-it, and leaves it unformatted."
+  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
+leaves it unformatted."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -82,8 +164,8 @@ it, and leaves it unformatted."
                                (buffer-name "*json-results*")
                                (read-only-p t)
                                &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into
-it, and formats it as JSON."
+  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
+formats it as JSON."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -93,27 +175,88 @@ it, and formats it as JSON."
     (read-only-mode read-only-p)
     (pop-to-buffer (current-buffer))))
 
+(cl-defun rest-multiple-results-to-buffer (&key
+                                           results
+                                           format-buffer
+                                           buffer-name-pattern
+                                           (read-only-p t)
+                                           &allow-other-keys)
+  "Call FORMAT-BUFFER for all the entries in RESULTS.
+
+The BUFFER-NAME-PATTERN is a string which is used to format each buffer
+name.  It is used along with a counter for each of the entries in
+RESULTS."
+  (let ((count 1))
+    (dolist (elem results)
+      (funcall format-buffer
+               :data (cdr elem)
+               :read-only-p read-only-p
+               :buffer-name (format buffer-name-pattern count))
+      (cl-incf count))))
+
+(cl-defun rest-multiple-raw-to-buffer (&key
+                                       results
+                                       (buffer-name-pattern
+                                        "*raw-results-%03d*")
+                                       (read-only-p t)
+                                       &allow-other-keys)
+  "Call `rest-raw-to-buffer' for all the entries in RESULTS, using
+`rest-multiple-resuts-to-buffer'."
+  (rest-multiple-results-to-buffer :results results
+                                   :format-buffer #'rest-raw-to-buffer
+                                   :buffer-name-pattern buffer-name-pattern
+                                   :read-only-p read-only-p))
+
+(cl-defun rest-multiple-json-to-buffer (&key
+                                        results
+                                        (buffer-name-pattern
+                                         "*json-results-%03d*")
+                                        (read-only-p t)
+                                        &allow-other-keys)
+  "Call `rest-json-to-buffer' for all the entries in RESULTS, using
+`rest-multiple-resuts-to-buffer'."
+  (rest-multiple-results-to-buffer :results results
+                                   :format-buffer #'rest-json-to-buffer
+                                   :buffer-name-pattern buffer-name-pattern
+                                   :read-only-p read-only-p))
+
+(cl-defun rest-multiple-show-error (results
+                                    &allow-other-keys)
+  "Display an error message when a multiple call fails."
+  ;; TODO: provide useful information about the errors.
+  (message "Some of the multiple calls failed."))
+
 (cl-defun rest-show-error (&key
                            error-thrown
                            &allow-other-keys)
-  "Writes a message with the ERROR-THROWN."
+  "Write a message with the ERROR-THROWN."
   (message "Error: %S" error-thrown))
 
 (cl-defun rest-auth-header (&key
                             api-key
                             (type nil))
-  "Generates a header to be used with `rest-api-call' for
-authenticated calls.
+  "Generate a header to be used with `rest-call' for authenticated calls.
 
-KEY is a string with the API key or the JWT token.
+API-KEY is a string with the API key or the JWT token.
 
 TYPE may be \\='jwt for JWT authentication, which will produce an
-\\='Authentication: Bearer KEY\\=' header.
+\\='Authentication: Bearer API-KEY\\=' header.
 
-Any other TYPE will produce an \\='apikey: KEY\\=' header."
+Any other TYPE will produce an \\='apikey: API-KEY\\=' header."
   (cond ((eq type 'jwt)
          `("Authorization" . ,(concat "Bearer " api-key)))
         (t
          `("apikey" . ,api-key))))
+
+(cl-defun rest--param (key
+                       value
+                       &rest plists)
+  "Return VALUE if it is non-nil.  Otherwise, look sequentially for KEY in
+the plists passed as arguments and return the first non-nil value found,
+or nil if there is no one in them."
+  (let ((result value))
+    (while (and (not result) plists)
+      (setq result (plist-get (pop plists) key)))
+    result))
 
 ;;; rest.el ends here
