@@ -82,7 +82,6 @@ return values can be used to make parallel calls with
 
 (cl-defun rest-multiple-calls (&key
                                parameters
-                               results
                                (success #'rest-multiple-raw-to-buffer)
                                (error #'rest-multiple-show-error)
                                (type nil)
@@ -91,47 +90,60 @@ return values can be used to make parallel calls with
                                (data nil)
                                (content-type nil))
   "Make multiple parallel REST API calls using `rest-call' with the
-parameters stored in each of the entries of the PARAMETERS plist.  Leave
-the results of individual calls in the RESULTS list, with entries being
-cons with (SYMBOL-STATUS . DATA).  Calls SUCCESS if all the calls are
-successful, or ERROR if any of them fails.
+parameters stored in each element of the PARAMETERS plist, or the
+default parameters of `rest-call' for the missing ones.  Gather the
+results of individual calls in a list with elements being cons
+(SYMBOL-STATUS . DATA).  Pass this list as parameter to SUCCESS if all
+the calls are successful, or to ERROR if any of them fails.  Entries in
+this list do not follow the same order as elements in the PARAMETERS
+plist.
 
-Entries in the RESULTS list do not follow the same order as elements in
-the PARAMETERS plist.
-
-For each entry in the PARAMETERS plist, :entrypoint is required, and
+For each element in the PARAMETERS plist, :entrypoint is required, and
 :sync, :success and :error are ignored.
 
 Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
 are used for entries in the PARAMETERS list that don't specify them.
 
-Both SUCCESS and ERROR must expect the RESULTS list as parameter."
+Both SUCCESS and ERROR must accept the results list as parameter.  See
+`rest-multiple-raw-to-buffer' as an example.
+
+Return a list with the lists of parameters used to call `rest-call'."
   (let ((counter (length parameters))
-        (error-p nil))
+        (error-p nil)
+        (api-results nil)
+        (result nil))
     (dolist (entry parameters)
-      (rest-call :type (or type (plist-get entry :type))
-                 :entrypoint (plist-get entry :entrypoint)
-                 :accept (or accept (plist-get entry :accept))
-                 :auth-header (or auth-header (plist-get entry :auth-header))
-                 :data (or data (plist-get entry :data))
-                 :content-type (or content-type
-                                   (plist-get entry :content-type))
-                 :success nil
-                 :error nil
-                 :complete
-                 (cl-function
-                  (lambda (&key
-                           data
-                           symbol-status
-                           &allow-other-keys)
-                    (push `(,symbol-status . ,data) results)
-                    (setq error-p (or error-p
-                                      (not (eq symbol-status 'success))))
-                    (cl-decf counter)
-                    (when (= 0 counter)
-                      (if error-p
-                          (funcall error :results results)
-                        (funcall success :results results)))))))))
+      (let* ((type (or type (plist-get entry :type)))
+             (entrypoint (plist-get entry :entrypoint))
+             ;; Make a first dry-run call to get the default parameters.
+             (defaults (rest-call :dry-run t
+                                  :type type
+                                  :entrypoint entrypoint)))
+        (push
+         (rest-call
+          :type type
+          :entrypoint entrypoint
+          :accept (rest--param :accept accept entry defaults)
+          :auth-header (rest--param :auth-header auth-header entry defaults)
+          :data (rest--param :data data entry defaults)
+          :content-type (rest--param :content-type content-type entry defaults)
+          :success nil
+          :error nil
+          :complete
+          (cl-function
+           (lambda (&key
+                    data
+                    symbol-status
+                    &allow-other-keys)
+             (push `(,symbol-status . ,data) api-results)
+             (setq error-p (or error-p
+                               (not (eq symbol-status 'success))))
+             (when (= 0 (cl-decf counter))
+               (if error-p
+                   (funcall error :results api-results)
+                 (funcall success :results api-results))))))
+         result)))
+    result))
 
 (cl-defun rest-raw-to-buffer (&key
                               data
@@ -235,5 +247,16 @@ Any other TYPE will produce an \\='apikey: API-KEY\\=' header."
          `("Authorization" . ,(concat "Bearer " api-key)))
         (t
          `("apikey" . ,api-key))))
+
+(cl-defun rest--param (key
+                       value
+                       &rest plists)
+  "Return VALUE if it is non-nil.  Otherwise, look sequentially for KEY in
+the plists passed as arguments and return the first non-nil value found,
+or nil if there is no one in them."
+  (let ((result value))
+    (while (and (not result) plists)
+      (setq result (plist-get (pop plists) key)))
+    result))
 
 ;;; rest.el ends here
