@@ -237,16 +237,18 @@ RESULTS."
                             (type nil))
   "Generate a header to be used with `rest-call' for authenticated calls.
 
-API-KEY is a string with the API key or the JWT token.
+API-KEY is a string with the API key or the JWT token.  The function
+returns nil it is nil.
 
 TYPE may be \\='jwt for JWT authentication, which will produce an
 \\='Authentication: Bearer API-KEY\\=' header.
 
 Any other TYPE will produce an \\='apikey: API-KEY\\=' header."
-  (cond ((eq type 'jwt)
-         `("Authorization" . ,(concat "Bearer " api-key)))
-        (t
-         `("apikey" . ,api-key))))
+  (when api-key
+    (cond ((eq type 'jwt)
+           `("Authorization" . ,(concat "Bearer " api-key)))
+          (t
+           `("apikey" . ,api-key)))))
 
 (cl-defun rest--param (key
                        value
