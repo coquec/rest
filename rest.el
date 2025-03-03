@@ -76,9 +76,9 @@ return values can be used to make parallel calls with
         :endpoint endpoint
         :timeout timeout
         :accept accept
-        :auth auth-header
+        :auth-header auth-header
         :data data
-        :content content-type))
+        :content-type content-type))
 
 (cl-defun rest-multiple-calls (&key
                                parameters
