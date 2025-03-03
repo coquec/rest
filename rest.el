@@ -157,7 +157,7 @@ leaves it unformatted."
     (erase-buffer)
     (insert data)
     (read-only-mode read-only-p)
-    (pop-to-buffer (current-buffer))))
+    (display-buffer (current-buffer))))
 
 (cl-defun rest-json-to-buffer (&key
                                data
@@ -173,7 +173,7 @@ formats it as JSON."
     (json-mode-beautify (point-min) (point-max))
     (json-mode)
     (read-only-mode read-only-p)
-    (pop-to-buffer (current-buffer))))
+    (display-buffer (current-buffer))))
 
 (cl-defun rest-multiple-results-to-buffer (&key
                                            results
