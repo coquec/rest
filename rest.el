@@ -263,4 +263,6 @@ or nil if there is no one in them."
       (setq result (plist-get (pop plists) key)))
     result))
 
+(provide 'rest)
+
 ;;; rest ends here
