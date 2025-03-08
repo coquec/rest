@@ -33,6 +33,7 @@
 (require 'json)
 (require 'json-mode)
 
+;;;###autoload
 (cl-defun rest-call (&key
                      type
                      endpoint
@@ -58,20 +59,20 @@ return values can be used to make parallel calls with
 `rest-multiple-calls'."
   (unless dry-run
     (request
-      endpoint
-      :sync sync
-      :timeout timeout
-      :type type
-      :headers
-      (append `(("accept" . ,accept))
-              (and auth-header
-                   (list auth-header))
-              (and content-type
-                   `(("Content-Type" . ,content-type))))
-      :data data
-      :success success
-      :error error
-      :complete complete))
+     endpoint
+     :sync sync
+     :timeout timeout
+     :type type
+     :headers
+     (append `(("accept" . ,accept))
+             (and auth-header
+                  (list auth-header))
+             (and content-type
+                  `(("Content-Type" . ,content-type))))
+     :data data
+     :success success
+     :error error
+     :complete complete))
   (list :type type
         :endpoint endpoint
         :timeout timeout
@@ -80,6 +81,7 @@ return values can be used to make parallel calls with
         :data data
         :content-type content-type))
 
+;;;###autoload
 (cl-defun rest-multiple-calls (&key
                                parameters
                                (success #'rest-multiple-raw-to-buffer)
