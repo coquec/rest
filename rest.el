@@ -1,4 +1,4 @@
-;;; rest.el --- Useful functions for REST API calls. -*- lexical-binding: t; -*-
+;;; rest --- Useful functions for REST API calls. -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Coque Couto
 
@@ -8,23 +8,23 @@
 ;; Keywords: comm lisp tools
 ;; URL: https://github.com/coquec/emacs-rest
 
-;; rest.el is free software: you can redistribute it and/or modify it under the
+;; rest is free software: you can redistribute it and/or modify it under the
 ;; terms of the GNU General Public License as published by the Free Software
 ;; Foundation, either version 3 of the License, or (at your option) any later
 ;; version.
 
-;; rest.el is distributed in the hope that it will be useful, but WITHOUT ANY
+;; rest is distributed in the hope that it will be useful, but WITHOUT ANY
 ;; WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 ;; FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 ;; details.
 
 ;; You should have received a copy of the GNU General Public License along with
-;; rest.el.  If not, see <https://www.gnu.org/licenses/>.
+;; rest.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
-;; rest.el contains some simple functions to write elisp code that interacts
-;; with REST API endpoints.
+;; rest contains some simple functions to write elisp code that interacts with
+;; REST API endpoints.
 
 ;;; Code:
 
@@ -261,4 +261,4 @@ or nil if there is no one in them."
       (setq result (plist-get (pop plists) key)))
     result))
 
-;;; rest.el ends here
+;;; rest ends here

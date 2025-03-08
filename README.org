@@ -1,15 +1,14 @@
-* rest.el
+* rest
 
 ** What is it?
 
-rest.el is an Emacs package with elisp functions to call REST API endpoints.
-It is meant as a ground for building elisp proxies to REST APIs, currently only
-by hand, but (hopefully) in the future by reading OpenAPI JSON API
-descriptions.
+rest is an Emacs package with elisp functions to call REST API endpoints.  It
+is meant as a ground for building elisp proxies to REST APIs, currently only by
+hand, but (hopefully) in the future by reading OpenAPI JSON API descriptions.
 
 ** How to use it
 
-The functions use the [[https://melpa.org/#/request][request.el]] package to make the HTTP calls.  Most of the
+The functions use the [[https://melpa.org/#/request][request]] package to make the HTTP calls.  Most of the
 parameters used by the different functions have the same meaning in both
 packages.
 
