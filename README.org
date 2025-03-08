@@ -6,6 +6,27 @@ rest is an Emacs package with elisp functions to call REST API endpoints.  It
 is meant as a ground for building elisp proxies to REST APIs, currently only by
 hand, but (hopefully) in the future by reading OpenAPI JSON API descriptions.
 
+** How to install
+
+The package is available as source code in a Git repository.  You can add the
+following lines to your init file for Emacs 29.x or 30.x versions:
+
+#+NAME: Init code to install the package with use-package
+#+BEGIN_SRC emacs-lisp :results output none
+  (let ((rest-repo "https://github.com/coquec/rest.git"))
+    (if (< emacs-major-version 30)
+        (package-vc-install rest-repo :last-release)
+      (use-package rest
+        :vc
+        (:url rest-repo :branch "main" :rev :newest))))
+  (use-package rest
+    :vc
+    (:url "https://github.com/coquec/rest.git" :branch "main" :rev :newest))
+#+END_SRC
+
+In older ~use-package~ versions that don't support the ~:vc~ parameter, you
+should clone the repository and
+
 ** How to use it
 
 The functions use the [[https://melpa.org/#/request][request]] package to make the HTTP calls.  Most of the
