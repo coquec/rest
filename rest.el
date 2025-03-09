@@ -3,8 +3,12 @@
 ;; Copyright (C) 2025 Coque Couto
 
 ;; Author: Coque Couto <coque.couto at gmail.com>
-;; Version: 0.2.2
-;; Package-Requires: ((emacs "24.4") (request "0") (json "0") (json-mode "0"))
+;; Version: 0.3
+;; Package-Requires: ((emacs "24.4")
+;;                    (json "0")
+;;                    (json-mode "0")
+;;                    (map "0")
+;;                    (request "0"))
 ;; Keywords: comm lisp tools
 ;; URL: https://github.com/coquec/emacs-rest
 
@@ -29,131 +33,135 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'request)
 (require 'json)
 (require 'json-mode)
+(require 'map)
+(require 'request)
+
+
+;; Main functions.
 
 ;;;###autoload
-(cl-defun rest-call (&key
-                     type
-                     endpoint
-                     (dry-run nil)
-                     (sync nil)
-                     (timeout nil)
-                     (accept "application/vnd.api+json")
-                     (auth-header nil)
-                     (data nil)
-                     (content-type nil)
-                     (success #'rest-raw-to-buffer)
-                     (error #'rest-show-error)
-                     (complete nil))
-  "When the DRY-RUN parameter is nil, make a REST API call of type TYPE to
-the ENDPOINT URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as
-headers.  SUCCESS is called with the resulting data.
+(cl-defun rest-call (&rest r
+                           &key
+                           endpoint
+                           dry-run
+                           (accept "*/*")
+                           auth-header
+                           content-type
+                           (success #'rest-raw-to-buffer)
+                           (error #'rest-show-error)
+                           &allow-other-keys)
+  "Call a REST API endpoint using `request'.
 
-The other parameters work as described in the `request' documentation.
+When the DRY-RUN parameter is nil, make a REST API call to the ENDPOINT
+URL, including ACCEPT, AUTH-HEADER, and CONTENT-TYPE as headers.
 
-Return a list of the parameters used to call it, except DRY-RUN, SYNC,
-SUCCESS, ERROR, and COMPLETE.  Used along a non-nil DRY-RUN, these
+The callback functions SUCCESS and ERROR, along with the rest of allowed
+parameters, are described in the `request' documentation.
+
+Return a list of the parameters used to call it, except DRY-RUN.  These
 return values can be used to make parallel calls with
 `rest-multiple-calls'."
-  (unless dry-run
-    (request
-     endpoint
-     :sync sync
-     :timeout timeout
-     :type type
-     :headers
-     (append `(("accept" . ,accept))
-             (and auth-header
-                  (list auth-header))
-             (and content-type
-                  `(("Content-Type" . ,content-type))))
-     :data data
-     :success success
-     :error error
-     :complete complete))
-  (list :type type
-        :endpoint endpoint
-        :timeout timeout
-        :accept accept
-        :auth-header auth-header
-        :data data
-        :content-type content-type))
+  ;; There can be a headers parameter in r.  We merge it with the headers
+  ;; passed to us as parameters.
+  (let ((merged-headers (rest--replace-values
+                         (map-elt r :headers)
+                         `(("accept" . ,accept)
+                           ("Content-Type" . ,content-type)
+                           (,(car auth-header) . ,(cdr auth-header))))))
+    ;; Parameters' default values are not present in r.  We add them here.
+    (setq r (rest--replace-values r `((:accept . ,accept)
+                                      (:success . ,success)
+                                      (:error . ,error))))
+    (let ((params-to-request
+           `(,endpoint . ,(rest--remove-values
+                           (rest--replace-value r :headers merged-headers)
+                           :endpoint))))
+      (unless dry-run
+        (apply #'request params-to-request))
+      (rest--remove-values r :dry-run))))
 
 ;;;###autoload
 (cl-defun rest-multiple-calls (&key
                                parameters
+                               dry-run
                                (success #'rest-multiple-raw-to-buffer)
                                (error #'rest-multiple-show-error)
-                               (type nil)
-                               (accept nil)
-                               (auth-header nil)
-                               (data nil)
-                               (content-type nil))
-  "Make multiple parallel REST API calls using `rest-call' with the
-parameters stored in each element of the PARAMETERS plist, or the
-default parameters of `rest-call' for the missing ones.  Gather the
-results of individual calls in a list with elements being cons
-(SYMBOL-STATUS . DATA).  Pass this list as parameter to SUCCESS if all
-the calls are successful, or to ERROR if any of them fails.  Entries in
-this list do not follow the same order as elements in the PARAMETERS
-plist.
+                               type
+                               accept
+                               auth-header
+                               content-type)
+  "Call several REST API endpoints in parallel using `rest-call'.
+
+When the DRY-RUN parameter is nil, make multiple parallel REST API calls
+using `rest-call' with the parameters stored in each element of the
+PARAMETERS plist, or the default parameters of `rest-call' for the
+missing ones.  Gather the results of individual calls in a list with
+elements being cons (SYMBOL-STATUS . DATA).  Pass this list as parameter
+to SUCCESS if all the calls are successful, or to ERROR if any of them
+fails.  Entries in this list do not follow the same order as elements in
+the PARAMETERS plist.
 
 For each element in the PARAMETERS plist, :endpoint is required, and
-:sync, :success and :error are ignored.
+:dry-run, :sync, :success, :error, and :complete are ignored.
 
-Any of the parameters TYPE, ACCEPT, AUTH-HEADER, DATA, and CONTENT-TYPE
-are used for entries in the PARAMETERS list that don't specify them.
+Any of the parameters TYPE, ACCEPT, AUTH-HEADER, and CONTENT-TYPE are
+used for entries in the PARAMETERS list that don't specify them.
 
 Both SUCCESS and ERROR must accept the results list as parameter.  See
 `rest-multiple-raw-to-buffer' as an example.
 
-Return a list with the lists of parameters used to call `rest-call'."
+The DRY-RUN is passed to `rest-call', so no API calls are made if this
+parameter is non-nil.
+
+Return a list with the lists of parameters used to call `rest-call',
+except :success, :error, and :complete."
   (let ((counter (length parameters))
         (error-p nil)
         (api-results nil)
         (result nil))
     (dolist (entry parameters)
-      (let* ((type (rest--param :type type entry))
-             (endpoint (plist-get entry :endpoint))
-             ;; Make a first dry-run call to get the default parameters.
-             (defaults (rest-call :dry-run t
-                                  :type type
-                                  :endpoint endpoint)))
-        (push
-         (rest-call
-          :type type
-          :endpoint endpoint
-          :accept (rest--param :accept accept entry defaults)
-          :auth-header (rest--param :auth-header auth-header entry defaults)
-          :data (rest--param :data data entry defaults)
-          :content-type (rest--param :content-type content-type entry defaults)
-          :success nil
-          :error nil
-          :complete
-          (cl-function
-           (lambda (&key
-                    data
-                    symbol-status
-                    &allow-other-keys)
-             (push `(,symbol-status . ,data) api-results)
-             (setq error-p (or error-p
-                               (not (eq symbol-status 'success))))
-             (when (= 0 (cl-decf counter))
-               (if error-p
-                   (funcall error :results api-results)
-                 (funcall success :results api-results))))))
-         result)))
+      (push
+       (rest--remove-values
+        (apply #'rest-call
+               :dry-run dry-run
+               :sync nil
+               :success nil
+               :error nil
+               :complete (cl-function
+                          (lambda (&key
+                                   data
+                                   symbol-status
+                                   &allow-other-keys)
+                            (push `(,symbol-status . ,data) api-results)
+                            (setq error-p (or error-p
+                                              (not (eq symbol-status
+                                                       'success))))
+                            (when (= 0 (cl-decf counter))
+                              (if error-p
+                                  (funcall error :results api-results)
+                                (funcall success :results api-results)))))
+               (rest--replace-values
+                (rest--remove-values entry :sync :success :error)
+                `((:type . ,type)
+                  (:accept . ,accept)
+                  (:auth-header . ,auth-header)
+                  (:content-type . ,content-type))))
+        :sync :success :error :complete)
+       result))
     result))
+
+
+;; Support functions useful for the users of the package.
 
 (cl-defun rest-raw-to-buffer (&key
                               data
                               (buffer-name "*raw-results*")
                               (read-only-p t)
                               &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
-leaves it unformatted."
+  "Delete the contents of the buffer BUFFER-NAME, paste DATA into it, and
+leave it unformatted."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -166,8 +174,8 @@ leaves it unformatted."
                                (buffer-name "*json-results*")
                                (read-only-p t)
                                &allow-other-keys)
-  "Deletes the contents of the buffer BUFFER-NAME, paste DATA into it, and
-formats it as JSON."
+  "Delete the contents of the buffer BUFFER-NAME, paste DATA into it, and
+format it as JSON."
   (with-current-buffer (get-buffer-create buffer-name)
     (read-only-mode -1)
     (erase-buffer)
@@ -222,25 +230,21 @@ RESULTS."
                                    :buffer-name-pattern buffer-name-pattern
                                    :read-only-p read-only-p))
 
-(cl-defun rest-multiple-show-error (results
-                                    &allow-other-keys)
+(cl-defun rest-multiple-show-error (results &allow-other-keys)
   "Display an error message when a multiple call fails."
   ;; TODO: provide useful information about the errors.
   (message "Some of the multiple calls failed."))
 
-(cl-defun rest-show-error (&key
-                           error-thrown
-                           &allow-other-keys)
+(cl-defun rest-show-error (&key error-thrown &allow-other-keys)
   "Write a message with the ERROR-THROWN."
   (message "Error: %S" error-thrown))
 
-(cl-defun rest-auth-header (&key
-                            api-key
-                            (type nil))
+;;;###autoload
+(cl-defun rest-auth-header (&key api-key (type nil))
   "Generate a header to be used with `rest-call' for authenticated calls.
 
-API-KEY is a string with the API key or the JWT token.  The function
-returns nil it is nil.
+API-KEY is a string with the API key or the JWT token.  Return nil it is
+nil.
 
 TYPE may be \\='jwt for JWT authentication, which will produce an
 \\='Authentication: Bearer API-KEY\\=' header.
@@ -252,15 +256,37 @@ Any other TYPE will produce an \\='apikey: API-KEY\\=' header."
           (t
            `("apikey" . ,api-key)))))
 
-(cl-defun rest--param (key
-                       value
-                       &rest plists)
-  "Return VALUE if it is non-nil.  Otherwise, look sequentially for KEY in
-the plists passed as arguments and return the first non-nil value found,
-or nil if there is no one in them."
-  (let ((result value))
-    (while (and (not result) plists)
-      (setq result (plist-get (pop plists) key)))
+
+;; Useful internal functions.
+
+(defun rest--replace-value (plist key value)
+  "Replace the KEY and VALUE in PLIST if VALUE is not nil.
+
+PLIST is not modified."
+  (if value
+      (map-insert plist key value)
+    plist))
+
+(defun rest--replace-values (plist list-of-cons)
+  "Replace each pair of key and value in LIST-OF-CONS in PLIST.
+
+Does not replace the pairs with nil values.
+
+PLIST is not modified."
+  (if list-of-cons
+      (let ((cons (car list-of-cons)))
+        (rest--replace-values
+         (rest--replace-value plist (car cons) (cdr cons))
+         (cdr list-of-cons)))
+    plist))
+
+(defun rest--remove-values (plist &rest keys)
+  "Remove all the KEYS and its values from PLIST.
+
+PLIST is not modified."
+  (let ((result (map-copy plist)))
+    (dolist (key keys)
+      (setq result (map-delete result key)))
     result))
 
 (provide 'rest)
