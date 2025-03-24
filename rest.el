@@ -1,14 +1,14 @@
-;;; rest --- Useful functions for REST API calls. -*- lexical-binding: t; -*-
+;;; rest --- Useful functions for REST API calls -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Coque Couto
 
 ;; Author: Coque Couto <coque.couto at gmail.com>
 ;; Version: 0.3
 ;; Package-Requires: ((emacs "24.4")
-;;                    (json "0")
-;;                    (json-mode "0")
-;;                    (map "0")
-;;                    (request "0"))
+;;                    (json)
+;;                    (json-mode)
+;;                    (map)
+;;                    (request))
 ;; Keywords: comm lisp tools
 ;; URL: https://github.com/coquec/emacs-rest
 

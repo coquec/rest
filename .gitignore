@@ -3,3 +3,5 @@
 *.elc
 *.pdf
 *.html
+*-autoloads.el
+*-pkg.el
